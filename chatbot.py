@@ -166,13 +166,13 @@ def main():
             st.success("Chat cleared")
 
     # Main chat area
-    st.title("DocsMind ChatBot - Github: https://github.com/Naman0807/DocsMind")
-
+    st.title("DocsMind ChatBot")
     # Display chat messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
+    st.write("Github: https://github.com/Naman0807/")
     # Chat input
     if prompt := st.chat_input("Enter your message"):
         if not st.session_state.vector_store:
