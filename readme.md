@@ -2,6 +2,8 @@
 
 A powerful document-based chatbot that uses Retrieval-Augmented Generation (RAG) to provide accurate answers from your documents using Google's Generative AI.
 
+## Demo: https://docsmind.streamlit.app/
+
 ## Features
 
 - Support for multiple document formats:
