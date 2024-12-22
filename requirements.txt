@@ -1,0 +1,7 @@
+streamlit 
+google-generativeai 
+langchain 
+chromadb 
+python-pptx 
+PyPDF2 
+python-docx
