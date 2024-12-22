@@ -139,7 +139,7 @@ def main():
 
     # Sidebar
     with st.sidebar:
-        st.title("DocsMind - Github: https://github.com/Naman0807/DocsMind")
+        st.title("DocsMind")
 
         # API Key input
         api_key = st.text_input("Enter Gemini API Key:", type="password")
@@ -166,7 +166,7 @@ def main():
             st.success("Chat cleared")
 
     # Main chat area
-    st.title("DocsMind ChatBot")
+    st.title("DocsMind ChatBot - Github: https://github.com/Naman0807/DocsMind")
 
     # Display chat messages
     for message in st.session_state.messages:
