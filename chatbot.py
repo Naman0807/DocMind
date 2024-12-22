@@ -127,7 +127,6 @@ Question:
     Answer:
 
 """
-
         response = model.generate_content(prompt)
         return response.text
 
@@ -140,7 +139,7 @@ def main():
 
     # Sidebar
     with st.sidebar:
-        st.title("DocsMind")
+        st.title("DocsMind - Github: https://github.com/Naman0807/DocsMind")
 
         # API Key input
         api_key = st.text_input("Enter Gemini API Key:", type="password")
