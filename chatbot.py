@@ -133,14 +133,14 @@ Question:
 
 
 def main():
-    st.set_page_config(page_title="DocMind", layout="wide")
+    st.set_page_config(page_title="DocsMind", layout="wide")
 
     # Initialize the chatbot
     chatbot = DocumentRAGChatbot()
 
     # Sidebar
     with st.sidebar:
-        st.title("DocMind")
+        st.title("DocsMind")
 
         # API Key input
         api_key = st.text_input("Enter Gemini API Key:", type="password")
@@ -167,7 +167,7 @@ def main():
             st.success("Chat cleared")
 
     # Main chat area
-    st.title("DocMind ChatBot")
+    st.title("DocsMind ChatBot")
 
     # Display chat messages
     for message in st.session_state.messages:
