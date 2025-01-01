@@ -390,6 +390,6 @@ def main():
                             {"role": "assistant", "content": response}
                         )
                         st.write(response)
-    st.write("Made by [Naman0807](https://github.com/Naman0807) can contributea at [here](https://github.com/Naman0807/DocsMind)") 
+    st.write("Made by [Naman0807](https://github.com/Naman0807) can contribute at [here](https://github.com/Naman0807/DocsMind)") 
 if __name__ == "__main__":
     main()
