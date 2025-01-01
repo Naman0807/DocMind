@@ -24,6 +24,7 @@ class DocumentRAGChatbot:
         """Save and validate API key"""
         if api_key:
             genai.configure(api_key=api_key)
+            st.session_state.api_key = api_key
             st.success("API key saved successfully!")
             return True
         else:
@@ -32,6 +33,12 @@ class DocumentRAGChatbot:
 
     def process_document(self, file):
         try:
+            # Check if we already have processed this file
+            if (st.session_state.vector_store is not None and 
+                st.session_state.current_file == file.name):
+                st.info(f"Document {file.name} is already processed and ready to use!")
+                return
+            
             # Get file extension
             file_extension = file.name.lower().split('.')[-1]
             
@@ -48,17 +55,45 @@ class DocumentRAGChatbot:
                 raise ValueError(f"Unsupported file format. Please upload one of: {supported_formats}")
             
             # Process document with appropriate function
-            with st.spinner(f"Processing {file_extension.upper()} document..."):
+            progress_text = st.empty()
+            progress_bar = st.progress(0)
+            cancel_button = st.button("Cancel Processing")
+            
+            try:
+                # Update progress
+                progress_text.text(f"Processing {file_extension.upper()} document...")
+                progress_bar.progress(25)
+                
+                if cancel_button:
+                    st.warning("Processing cancelled by user")
+                    return
+                
                 texts = processors[file_extension](file)
                 
                 if not texts:
                     raise ValueError(f"No text content could be extracted from the {file_extension.upper()} file")
                 
+                # Update progress
+                progress_text.text("Creating vector store...")
+                progress_bar.progress(50)
+                
+                if cancel_button:
+                    st.warning("Processing cancelled by user")
+                    return
+                
                 # Update session state
                 st.session_state.vector_store = self.create_vector_store(texts)
                 st.session_state.current_file = file.name
                 
+                # Final progress update
+                progress_text.text("Processing complete!")
+                progress_bar.progress(100)
                 st.success(f"Successfully processed {file.name}")
+                
+            finally:
+                # Clean up progress indicators
+                progress_text.empty()
+                progress_bar.empty()
                 
         except Exception as e:
             st.error(f"Error processing document: {str(e)}")
@@ -154,43 +189,70 @@ class DocumentRAGChatbot:
             raise
 
     def create_vector_store(self, texts):
-
         try:
             # Input validation
             if not texts or not isinstance(texts, list) or not all(isinstance(t, str) for t in texts):
                 raise ValueError("Invalid input: texts must be a non-empty list of strings")
 
-            # Configure text splitter with optimal parameters for better context retention
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=400,
-                length_function=len,
-                separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""],
-                keep_separator=True
-            )
+            # Create progress containers
+            progress_text = st.empty()
+            progress_bar = st.progress(0)
+            
+            try:
+                # Configure text splitter
+                progress_text.text("Configuring text splitter...")
+                progress_bar.progress(10)
+                
+                text_splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=1000,
+                    chunk_overlap=400,
+                    length_function=len,
+                    separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""],
+                    keep_separator=True
+                )
 
-            # Process chunks with progress indicator
-            with st.spinner("Processing document chunks..."):
+                # Process chunks
+                progress_text.text("Creating document chunks...")
+                progress_bar.progress(30)
                 chunks = text_splitter.create_documents(texts)
                 
                 # Validate chunk creation
                 if not chunks:
                     raise ValueError("No chunks were created from the input texts")
                 
-                st.info(f"Created {len(chunks)} chunks from the document")
+                progress_text.text(f"Created {len(chunks)} chunks from the document")
+                progress_bar.progress(50)
 
-                # Initialize embeddings with error handling
+                # Initialize embeddings
+                progress_text.text("Initializing embeddings model...")
+                progress_bar.progress(70)
+                
+                # Get API key from session state
+                if "api_key" not in st.session_state:
+                    raise ValueError("API key not found. Please enter your Google API key in the sidebar.")
+                    
                 try:
-                    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+                    embeddings = GoogleGenerativeAIEmbeddings(
+                        model="models/embedding-001",
+                        google_api_key=st.session_state.api_key
+                    )
                 except Exception as e:
                     st.error("Failed to initialize embeddings model. Please check your API key.")
                     raise Exception(f"Embeddings initialization failed: {str(e)}")
 
-                # Create vector store with progress indicator
+                # Create vector store
+                progress_text.text("Creating vector store...")
+                progress_bar.progress(90)
                 vector_store = FAISS.from_documents(chunks, embeddings)
-                st.success("Vector store created successfully!")
                 
+                progress_text.text("Vector store created successfully!")
+                progress_bar.progress(100)
                 return vector_store
+
+            finally:
+                # Clean up progress indicators
+                progress_text.empty()
+                progress_bar.empty()
 
         except Exception as e:
             st.error(f"Error creating vector store: {str(e)}")
@@ -198,6 +260,9 @@ class DocumentRAGChatbot:
 
     def query_document(self, query: str, model_name: str = "gemini-1.5-flash") -> str:
         """Query the document content using RAG"""
+        if "api_key" not in st.session_state:
+            raise ValueError("API key not found. Please enter your Google API key in the sidebar.")
+            
         results = st.session_state.vector_store.similarity_search(query, k=5)
         context = "\n".join([doc.page_content for doc in results])
 
@@ -314,8 +379,12 @@ def main():
         "Upload a document (PDF, DOCX, or PPTX)", type=["pdf", "docx", "pptx"]
     )
 
-    if uploaded_file:
-        chatbot.process_document(uploaded_file)
+    # Process document only if API key is present
+    if uploaded_file and "api_key" in st.session_state:
+        # Only process if it's a new file or no vector store exists
+        if (st.session_state.get("current_file") != uploaded_file.name or 
+            st.session_state.get("vector_store") is None):
+            chatbot.process_document(uploaded_file)
 
     # Initialize session state for expanders if not exists
     if "show_summary" not in st.session_state:
@@ -333,63 +402,57 @@ def main():
     # Document analysis tools in the first column (smaller)
     with col1:
         st.subheader("Document Analysis")
-        if st.session_state.vector_store:
-            # Summary section with reduced padding
-            with st.expander("📝 Document Summary", expanded=st.session_state.show_summary):
+        if st.session_state.get("vector_store"):
+            # Summary section
+            with st.expander("📝 Document Summary", expanded=st.session_state.get("show_summary", False)):
                 if st.button("Generate Summary", key="summary_btn", use_container_width=True):
                     with st.spinner("Generating summary..."):
                         summary = chatbot.generate_document_summary()
                         if summary:
-                            st.session_state.summary_content = summary
-                            st.session_state.show_summary = True
+                            st.session_state["summary_content"] = summary
+                            st.session_state["show_summary"] = True
                 
-                if st.session_state.summary_content:
-                    st.markdown(st.session_state.summary_content)
+                if st.session_state.get("summary_content"):
+                    st.markdown(st.session_state["summary_content"])
             
-            # Key points section with reduced padding
-            with st.expander("🔑 Key Points", expanded=st.session_state.show_keypoints):
+            # Key points section
+            with st.expander("🔑 Key Points", expanded=st.session_state.get("show_keypoints", False)):
                 if st.button("Extract Key Points", key="keypoints_btn", use_container_width=True):
                     with st.spinner("Extracting key points..."):
-                        key_points = chatbot.extract_key_points()
-                        if key_points:
-                            st.session_state.keypoints_content = key_points
-                            st.session_state.show_keypoints = True
+                        keypoints = chatbot.extract_key_points()
+                        if keypoints:
+                            st.session_state["keypoints_content"] = keypoints
+                            st.session_state["show_keypoints"] = True
                 
-                if st.session_state.keypoints_content:
-                    st.markdown(st.session_state.keypoints_content)
-        else:
-            st.info("Please upload a document to use the analysis tools")
+                if st.session_state.get("keypoints_content"):
+                    st.markdown(st.session_state["keypoints_content"])
 
     # Chat interface in the second column (larger)
     with col2:
         st.subheader("Chat with Document")
-        
-        # Container for chat messages with custom height
-        chat_container = st.container()
-        with chat_container:
+        if st.session_state.get("vector_store"):
             # Display chat messages
-            for message in st.session_state.messages:
+            for message in st.session_state.get("messages", []):
                 with st.chat_message(message["role"]):
-                    st.write(message["content"])
+                    st.markdown(message["content"])
 
-        # Chat input
-        if prompt := st.chat_input("Enter your message"):
-            if not st.session_state.vector_store:
-                st.error("Please upload and process a document first")
-            else:
-                # Add user message
+            # Chat input
+            if prompt := st.chat_input("Enter your message"):
+                # Add user message to chat history
                 st.session_state.messages.append({"role": "user", "content": prompt})
+                
+                # Display user message
                 with st.chat_message("user"):
-                    st.write(prompt)
+                    st.markdown(prompt)
 
-                # Generate and add assistant response
+                # Generate and display assistant response
                 with st.chat_message("assistant"):
                     with st.spinner("Thinking..."):
                         response = chatbot.query_document(prompt)
-                        st.session_state.messages.append(
-                            {"role": "assistant", "content": response}
-                        )
-                        st.write(response)
+                        st.markdown(response)
+                        st.session_state.messages.append({"role": "assistant", "content": response})
+        else:
+            st.info("Please upload a document to start chatting!") 
     st.write("Made by [Naman0807](https://github.com/Naman0807) can contribute at [here](https://github.com/Naman0807/DocsMind)") 
 if __name__ == "__main__":
     main()
