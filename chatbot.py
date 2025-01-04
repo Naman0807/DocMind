@@ -375,12 +375,20 @@ def main():
         "Upload a document (PDF, DOCX, or PPTX)", type=["pdf", "docx", "pptx"]
     )
 
-    # Process document only if API key is present
-    if uploaded_file and "api_key" in st.session_state:
-        # Only process if it's a new file or no vector store exists
-        if (st.session_state.get("current_file") != uploaded_file.name or 
-            st.session_state.get("vector_store") is None):
-            chatbot.process_document(uploaded_file)
+    if uploaded_file:
+        # Display file information
+        st.subheader("Document Information")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("File Name", uploaded_file.name)
+        col2.metric("File Size", f"{uploaded_file.size / 1024:.1f} KB")
+        col3.metric("File Type", uploaded_file.name.split('.')[-1].upper())
+
+        # Add process button
+        if st.button("Process Document"):
+            # Only process if it's a new file or no vector store exists
+            if (st.session_state.get("current_file") != uploaded_file.name or 
+                st.session_state.get("vector_store") is None):
+                chatbot.process_document(uploaded_file)
 
     # Initialize session state for expanders if not exists
     if "show_summary" not in st.session_state:
