@@ -3,11 +3,6 @@ import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from pptx import Presentation
-import tempfile
-import PyPDF2
-from docx import Document
-import os
 
 
 class DocumentRAGChatbot:
@@ -278,6 +273,7 @@ Instructions:
 6. If the context doesn't contain enough information, clearly state: "I cannot provide a complete answer as the context doesn't contain sufficient information about [specific aspect]"
 7. If the question is unclear, ask for clarification
 8. Maintain a professional yet conversational tone
+9. Easy english for faster understanding
 
 Context:
 {context}
